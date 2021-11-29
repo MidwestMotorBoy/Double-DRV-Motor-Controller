@@ -1,0 +1,4 @@
+(sym_lib_table
+  (lib (name Motor-Controller-V4-rescue)(type Legacy)(uri "C:/Users/stayo/Desktop/electric-car-team/KiCAD/Motor Controller Power Board/Motor Controller V4-rescue.lib")(options "")(descr ""))
+  (lib (name Final_BLDC_Driver-rescue)(type Legacy)(uri "C:/Users/stayo/Desktop/electric-car-team/KiCAD/DRV8350H BLDC Controller - Copy/Final_BLDC_Driver-rescue.lib")(options "")(descr ""))
+)
