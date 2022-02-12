@@ -42,7 +42,12 @@ extern "C" {
 
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
-
+//	extern uint32_t adc1[4];
+//	extern uint32_t adc2[3];
+//	extern uint32_t adc3[2];
+	extern ADC_HandleTypeDef hadc1;
+	extern ADC_HandleTypeDef hadc2;
+	extern ADC_HandleTypeDef hadc3;
 /* USER CODE END EC */
 
 /* Exported macro ------------------------------------------------------------*/
@@ -81,5 +86,3 @@ void Error_Handler(void);
 #endif
 
 #endif /* __MAIN_H */
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

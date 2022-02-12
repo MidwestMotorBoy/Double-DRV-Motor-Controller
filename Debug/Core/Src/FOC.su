@@ -1,0 +1,5 @@
+FOC.c:15:5:rawdata_to_angle	16	static
+FOC.c:20:6:parkclark	40	static
+FOC.c:33:6:inv_parkclark	32	static
+FOC.c:39:7:sin_lut	16	static
+FOC.c:42:7:cos_lut	16	static

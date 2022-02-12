@@ -7,7 +7,7 @@
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
+  * <h2><center>&copy; Copyright (c) 2022 STMicroelectronics.
   * All rights reserved.</center></h2>
   *
   * This software component is licensed by ST under Ultimate Liberty license
@@ -142,4 +142,3 @@ extern USBD_DescriptorsTypeDef HS_Desc;
 
 #endif /* __USBD_DESC__C__ */
 
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

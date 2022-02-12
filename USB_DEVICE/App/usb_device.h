@@ -7,7 +7,7 @@
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
+  * <h2><center>&copy; Copyright (c) 2022 STMicroelectronics.
   * All rights reserved.</center></h2>
   *
   * This software component is licensed by ST under Ultimate Liberty license
@@ -101,5 +101,3 @@ void MX_USB_DEVICE_Init(void);
 #endif
 
 #endif /* __USB_DEVICE__H__ */
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

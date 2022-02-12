@@ -1,0 +1,2 @@
+drv8350s.c:3:6:write_to_reg	24	static
+drv8350s.c:7:10:read_reg_IT	24	static
