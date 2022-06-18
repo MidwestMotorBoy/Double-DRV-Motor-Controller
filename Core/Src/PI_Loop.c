@@ -2,7 +2,7 @@
  * PI Loop.cpp
  *
  *  Created on: Oct 1, 2019
- *      Author: stayo
+ *      Author: Logan Rosenmayer
  */
 #include "PI_Loop.h"
 #define MAX_ERROR

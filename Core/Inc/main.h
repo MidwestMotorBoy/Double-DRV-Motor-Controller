@@ -69,6 +69,10 @@ void Error_Handler(void);
 #define FAULT_LED_GPIO_Port GPIOA
 #define BRD_EN_Pin GPIO_PIN_2
 #define BRD_EN_GPIO_Port GPIOA
+#define FAULT1_Pin GPIO_PIN_8
+#define FAULT1_GPIO_Port GPIOD
+#define DRV1_EN_Pin GPIO_PIN_9
+#define DRV1_EN_GPIO_Port GPIOD
 #define INV2_EN_Pin GPIO_PIN_15
 #define INV2_EN_GPIO_Port GPIOD
 #define INV1_EN_Pin GPIO_PIN_9
@@ -78,7 +82,9 @@ void Error_Handler(void);
 #define DRV2_EN_Pin GPIO_PIN_3
 #define DRV2_EN_GPIO_Port GPIOD
 /* USER CODE BEGIN Private defines */
-
+//Resolution_out = Resolution_in * FOSR^FORD,range of sensor 150*-3 -> 150*3
+//150*6/(2*32^3)=0.0137
+#define CURRENT_A_SCALER 0.01373291015f
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

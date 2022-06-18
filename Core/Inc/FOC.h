@@ -12,9 +12,9 @@
 
 
 int rawdata_to_angle(int rawdata);
-void parkclark(float Ia,float Ib,float Ic,int theta,float *Iq,float *Id );
+void parkclark(int Ia,int Ib,int Ic,int theta,int *Iq,int *Id );
 void inv_parkclark(int *Va,int *Vb,int *Vc,int theta,int Vq,int Vd );
-float sin_lut(int angle);
-float cos_lut(int angle);
-
+int sin_lut(int angle);
+int cos_lut(int angle);
+int find_min_voltage(int32_t Va, int32_t Vb, int32_t Vc);
 #endif /* FOC_H_ */

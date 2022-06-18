@@ -1,6 +1,6 @@
 ################################################################################
 # Automatically-generated file. Do not edit!
-# Toolchain: GNU Tools for STM32 (9-2020-q2-update)
+# Toolchain: GNU Tools for STM32 (10.3-2021.10)
 ################################################################################
 
 -include ../makefile.init
@@ -53,34 +53,34 @@ $(wildcard ../makefile.init) \
 $(wildcard ../makefile.targets) \
 
 
-BUILD_ARTIFACT_NAME := DRV_HELL
+BUILD_ARTIFACT_NAME := DRV8350s_Dual
 BUILD_ARTIFACT_EXTENSION := elf
 BUILD_ARTIFACT_PREFIX :=
 BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-DRV_HELL.elf \
+DRV8350s_Dual.elf \
+
+MAP_FILES += \
+DRV8350s_Dual.map \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-DRV_HELL.list \
-
-OBJCOPY_BIN += \
-DRV_HELL.bin \
+DRV8350s_Dual.list \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: DRV_HELL.elf secondary-outputs
+main-build: DRV8350s_Dual.elf secondary-outputs
 
 # Tool invocations
-DRV_HELL.elf: $(OBJS) $(USER_OBJS) C:\Users\stayo\STM32CubeIDE\workspace_1.3.0\DRV_HELL\STM32H730VBTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-g++ -o "DRV_HELL.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\Users\stayo\STM32CubeIDE\workspace_1.3.0\DRV_HELL\STM32H730VBTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="DRV_HELL.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -lstdc++ -lsupc++ -Wl,--end-group
+DRV8350s_Dual.elf DRV8350s_Dual.map: $(OBJS) $(USER_OBJS) C:\Users\stayo\STM32CubeIDE\workspace_1.3.0\DRV_HELL\STM32H730VBTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-g++ -o "DRV8350s_Dual.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\Users\stayo\STM32CubeIDE\workspace_1.3.0\DRV_HELL\STM32H730VBTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="DRV8350s_Dual.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -lstdc++ -lsupc++ -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -89,22 +89,17 @@ default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-DRV_HELL.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "DRV_HELL.list"
-	@echo 'Finished building: $@'
-	@echo ' '
-
-DRV_HELL.bin: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objcopy  -O binary $(EXECUTABLES) "DRV_HELL.bin"
+DRV8350s_Dual.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "DRV8350s_Dual.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) DRV_HELL.bin DRV_HELL.elf DRV_HELL.list default.size.stdout
+	-$(RM) DRV8350s_Dual.elf DRV8350s_Dual.list DRV8350s_Dual.map default.size.stdout
 	-@echo ' '
 
-secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST) $(OBJCOPY_BIN)
+secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST)
 
 fail-specified-linker-script-missing:
 	@echo 'Error: Cannot find the specified linker script. Check the linker settings in the build configuration.'

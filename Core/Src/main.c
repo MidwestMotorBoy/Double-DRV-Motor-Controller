@@ -20,10 +20,13 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "usb_device.h"
-
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "drv8350s.h"
+#include "FOC.h"
+#include "PI_loop.h"
+#include "pos_offset_cal.h"
+#include "controller_cfg.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -41,12 +44,10 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-ADC_HandleTypeDef hadc1;
+ ADC_HandleTypeDef hadc1;
 ADC_HandleTypeDef hadc2;
 ADC_HandleTypeDef hadc3;
-DMA_HandleTypeDef hdma_adc1;
 DMA_HandleTypeDef hdma_adc2;
-DMA_HandleTypeDef hdma_adc3;
 
 CORDIC_HandleTypeDef hcordic;
 
@@ -74,15 +75,17 @@ TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim8;
 
 /* USER CODE BEGIN PV */
-uint32_t adc1[4]={0};
-  uint32_t adc2[3]={0};
-  uint32_t adc3[2]={0};
-  int request_pos = 0xffff;
-  float data2angle = 360.0 / 4096;
-  int volatile position=0;
-  int volatile position_2=0;
-  float angle=0;
-  float foc_angle=0,speed=0;
+	//uint32_t __attribute__((section("RAM_D1"))) adc1[4]={0} ;
+uint32_t adc1[4]={0} ;
+uint32_t adc2[3]={0};
+uint32_t adc3[2]={0};
+int request_pos = 0xffff;
+float data2angle = 360.0 / 4096;
+int volatile position=0;
+int volatile position_2=0;
+float angle=0,angle_2=0;
+float foc_angle=0,speed=0;
+int adc_count=0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -101,10 +104,10 @@ static void MX_SPI4_Init(void);
 static void MX_SPI6_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM8_Init(void);
-static void MX_ADC3_Init(void);
 static void MX_DMA_Init(void);
-static void MX_TIM4_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_ADC3_Init(void);
+static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -162,11 +165,11 @@ int main(void)
   MX_SPI6_Init();
   MX_TIM1_Init();
   MX_TIM8_Init();
-  MX_ADC3_Init();
   MX_DMA_Init();
   MX_USB_DEVICE_Init();
-  MX_TIM4_Init();
   MX_TIM2_Init();
+  MX_ADC3_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
   HAL_GPIO_WritePin(FAULT_LED_GPIO_Port, FAULT_LED_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(BRD_EN_GPIO_Port, BRD_EN_Pin, GPIO_PIN_SET);
@@ -184,55 +187,84 @@ int main(void)
 	  Error_Handler();
   }
   HAL_TIM_Base_Start_IT(&htim1);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
   HAL_TIM_Base_Start_IT(&htim2);
   HAL_TIM_Base_Start(&htim4);
 //  HAL_TIM_Base_Start_IT(&htim8);
   TIM4->CCER = 0b0000010101010101;
   TIM4->CCR1 = 10000;
-  uint8_t *data = "Hello World from USB CDC123\n";
-  int bad_ret=0;
-  float current_C1 = 0,current_A1 = 0,current_C2 = 0,current_A2 = 0;
+  TIM1->CCER = 0b0000010101010101;
+  TIM1->CCR1 = 0;
+  TIM1->CCR2 = 0;
+  TIM1->CCR3 = 0;
+  TIM1->CCR4 = 0;
+  uint8_t data[] = "Hello World from USB CDC123\n";
+  float current_C1 = 0, current_A1 = 0, current_C2 = 0, current_A2 = 0;
   float prev_angle,angle_sum;
   uint8_t result=0;
-  uint32_t channel1 = 0,channel2 = 0,channel4 = 0,channel5 = 0;
-  uint16_t length=strlen(data);
+  uint32_t channel1 = 0, channel2 = 0, channel4 = 0, channel5 = 0;
+  uint16_t length = strlen(data);
+  uint16_t regs_data[6] = {0};
+  /*
+  if(HAL_ADC_Start_DMA(&hadc1, adc1, 4) != HAL_OK){
+  	  Error_Handler();
+  }
+  */
+  //HAL_ADC_Start_DMA(&hadc2, adc2, 3);
+ //HAL_ADC_Start_DMA(&hadc3, adc3, 1);
+  HAL_ADC_Start(&hadc3);
+  // Setup DRV
+  HAL_GPIO_WritePin(DRV1_EN_GPIO_Port, DRV1_EN_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(DRV2_EN_GPIO_Port, DRV2_EN_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOA, FAULT_LED_Pin|BRD_EN_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(INV1_EN_GPIO_Port, INV1_EN_Pin, GPIO_PIN_SET);
+  HAL_SPI_TransmitReceive(&hspi6, (uint8_t*) &request_pos, (uint8_t*) &position, 1, 100);
 
-  HAL_ADC_Start_DMA(&hadc1, adc1, 4);
-  HAL_ADC_Start_DMA(&hadc2, adc2, 3);
-  HAL_ADC_Start_DMA(&hadc3, adc3, 2);
+  //spi setup
+  set_driver_ctrl_reg(&hspi2, SHUTDOWN_ALL_BRIDGES, UVLO_EN, GATE_DRV_FAULT_EN, OTW_REPORT_EN, PWM_3X, SYNC_RECT, CW, COAST_DIS, NO_TPS);
+  set_hs_driver_reg(&hspi2, UNLOCK_REGS, IDRIVEP_1000MA, IDRIVEN_1200MA);
+  set_ls_driver_ctrl_reg(&hspi2, RETRY_ONLY, PK_CUR_2000NS, IDRIVEP_1000MA, IDRIVEN_1200MA);
+  set_ocp_ctrl_reg(&hspi2, RETRY_8MS, DEAD_TIME_200NS, OC_LATCHED, OCP_DEG_8US, VDS_LVL_1_0V);
+  HAL_Delay(10);
+  clear_flt(&hspi2);
+  HAL_Delay(10);
+  SENSOR_OFFSET_E mot_offset_1 = get_pos_offset(TIM1, &hspi4);
+  //SENSOR_OFFSET_E mot_offset_2 = get_pos_offset(TIM8, &hspi6);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-//	  CDC_Transmit_HS(data,length);
-//	  uint32_t debug_A1 = HAL_DFSDM_FilterGetRegularValue(&hdfsdm1_filter1, &channel2);
-//	  uint32_t debug_C1 = HAL_DFSDM_FilterGetRegularValue(&hdfsdm1_filter0, &channel1);
-	current_C1 = HAL_DFSDM_FilterGetRegularValue(&hdfsdm1_filter0, &channel1)*0.0016;
-	current_A1 = HAL_DFSDM_FilterGetRegularValue(&hdfsdm1_filter1, &channel2)*0.0016;
-	current_C2 = HAL_DFSDM_FilterGetRegularValue(&hdfsdm1_filter2, &channel4)*0.0016;
-	current_A2 = HAL_DFSDM_FilterGetRegularValue(&hdfsdm1_filter3, &channel5)*0.0016;
-	int debug1 = adc1[0];
-	int debug2 = adc2[0];
-	int debug3 = adc3[0];
+	  read_all_regs(&hspi2, regs_data);
+	  current_C1 = HAL_DFSDM_FilterGetRegularValue(&hdfsdm1_filter0, &channel1) * CURRENT_A_SCALER;
+	  current_A1 = HAL_DFSDM_FilterGetRegularValue(&hdfsdm1_filter1, &channel2) * CURRENT_A_SCALER;
+	  current_C2 = HAL_DFSDM_FilterGetRegularValue(&hdfsdm1_filter2, &channel4) * CURRENT_A_SCALER;
+	  current_A2 = HAL_DFSDM_FilterGetRegularValue(&hdfsdm1_filter3, &channel5) * CURRENT_A_SCALER;
+	  int dc_bus_fxpt = HAL_ADC_GetValue(&hadc3);
+	  float dc_bus = dc_bus_fxpt*0.028998778998779f;
+	  HAL_SPI_TransmitReceive(&hspi6, (uint8_t*) &request_pos, (uint8_t*) &position_2, 1, 100);
+	  HAL_SPI_TransmitReceive(&hspi4, (uint8_t*) &request_pos, (uint8_t*) &position, 1, 100);
+	  float position_temp = position >> 4;
+	  float position_temp_2 = position_2 >> 4;
+	  angle = data2angle * position_temp;
+	  angle_2 = data2angle * position_temp_2;
+	  //speed cal
+	  float diff_angle = angle - prev_angle;
+	  if(diff_angle > 180){
+		  diff_angle -= 360;
+	  }
+	  else if(diff_angle < -180){
+		diff_angle += 360;
+	  }
+	  angle_sum += diff_angle;
+	  prev_angle = angle;
 
-	HAL_StatusTypeDef spi_rsp = HAL_SPI_TransmitReceive(&hspi6, &request_pos, (uint8_t*) &position, 1, 100);
-	HAL_StatusTypeDef spi_rsp_2 = HAL_SPI_TransmitReceive(&hspi4, &request_pos, (uint8_t*) &position_2, 1, 100);
-	float position_temp = position >> 4;
-	angle = data2angle * position_temp;
-	//speed cal
-	float diff_angle=angle-prev_angle;
-	if(diff_angle>180){
-		diff_angle-=360;
-	}
-	else if(diff_angle<-180){
-		diff_angle+=360;
-	}
-	angle_sum+=diff_angle;
-	prev_angle=angle;
-//	  uint32_t *adc1_add = adc1;
-	  HAL_Delay (100);
+	  //	  uint32_t *adc1_add = adc1;
+	  HAL_Delay (1);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -252,11 +284,13 @@ void SystemClock_Config(void)
   /** Supply configuration update enable
   */
   HAL_PWREx_ConfigSupply(PWR_LDO_SUPPLY);
+
   /** Configure the main internal regulator output voltage
   */
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE0);
 
   while(!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {}
+
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
@@ -269,17 +303,18 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = 3;
-  RCC_OscInitStruct.PLL.PLLN = 73;
+  RCC_OscInitStruct.PLL.PLLN = 74;
   RCC_OscInitStruct.PLL.PLLP = 1;
   RCC_OscInitStruct.PLL.PLLQ = 10;
   RCC_OscInitStruct.PLL.PLLR = 10;
   RCC_OscInitStruct.PLL.PLLRGE = RCC_PLL1VCIRANGE_2;
   RCC_OscInitStruct.PLL.PLLVCOSEL = RCC_PLL1VCOWIDE;
-  RCC_OscInitStruct.PLL.PLLFRACN = 6126;
+  RCC_OscInitStruct.PLL.PLLFRACN = 4903;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
   }
+
   /** Initializes the CPU, AHB and APB buses clocks
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
@@ -335,6 +370,7 @@ static void MX_ADC1_Init(void)
   /* USER CODE BEGIN ADC1_Init 1 */
 
   /* USER CODE END ADC1_Init 1 */
+
   /** Common config
   */
   hadc1.Instance = ADC1;
@@ -348,14 +384,19 @@ static void MX_ADC1_Init(void)
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc1.Init.ConversionDataManagement = ADC_CONVERSIONDATA_DMA_CIRCULAR;
-  hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+  hadc1.Init.ConversionDataManagement = ADC_CONVERSIONDATA_DR;
+  hadc1.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
   hadc1.Init.LeftBitShift = ADC_LEFTBITSHIFT_NONE;
-  hadc1.Init.OversamplingMode = DISABLE;
+  hadc1.Init.OversamplingMode = ENABLE;
+  hadc1.Init.Oversampling.Ratio = 2;
+  hadc1.Init.Oversampling.RightBitShift = ADC_RIGHTBITSHIFT_NONE;
+  hadc1.Init.Oversampling.TriggeredMode = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
+  hadc1.Init.Oversampling.OversamplingStopReset = ADC_REGOVERSAMPLING_CONTINUED_MODE;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
     Error_Handler();
   }
+
   /** Configure the ADC multi-mode
   */
   multimode.Mode = ADC_MODE_INDEPENDENT;
@@ -363,6 +404,7 @@ static void MX_ADC1_Init(void)
   {
     Error_Handler();
   }
+
   /** Configure Regular Channel
   */
   sConfig.Channel = ADC_CHANNEL_4;
@@ -376,6 +418,7 @@ static void MX_ADC1_Init(void)
   {
     Error_Handler();
   }
+
   /** Configure Regular Channel
   */
   sConfig.Channel = ADC_CHANNEL_8;
@@ -384,6 +427,7 @@ static void MX_ADC1_Init(void)
   {
     Error_Handler();
   }
+
   /** Configure Regular Channel
   */
   sConfig.Channel = ADC_CHANNEL_9;
@@ -392,6 +436,7 @@ static void MX_ADC1_Init(void)
   {
     Error_Handler();
   }
+
   /** Configure Regular Channel
   */
   sConfig.Channel = ADC_CHANNEL_16;
@@ -423,15 +468,16 @@ static void MX_ADC2_Init(void)
   /* USER CODE BEGIN ADC2_Init 1 */
 
   /* USER CODE END ADC2_Init 1 */
+
   /** Common config
   */
   hadc2.Instance = ADC2;
   hadc2.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV6;
   hadc2.Init.Resolution = ADC_RESOLUTION_16B;
   hadc2.Init.ScanConvMode = ADC_SCAN_ENABLE;
-  hadc2.Init.EOCSelection = ADC_EOC_SEQ_CONV;
+  hadc2.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc2.Init.LowPowerAutoWait = DISABLE;
-  hadc2.Init.ContinuousConvMode = ENABLE;
+  hadc2.Init.ContinuousConvMode = DISABLE;
   hadc2.Init.NbrOfConversion = 3;
   hadc2.Init.DiscontinuousConvMode = DISABLE;
   hadc2.Init.ExternalTrigConv = ADC_SOFTWARE_START;
@@ -444,6 +490,7 @@ static void MX_ADC2_Init(void)
   {
     Error_Handler();
   }
+
   /** Configure Regular Channel
   */
   sConfig.Channel = ADC_CHANNEL_10;
@@ -457,6 +504,7 @@ static void MX_ADC2_Init(void)
   {
     Error_Handler();
   }
+
   /** Configure Regular Channel
   */
   sConfig.Channel = ADC_CHANNEL_11;
@@ -465,6 +513,7 @@ static void MX_ADC2_Init(void)
   {
     Error_Handler();
   }
+
   /** Configure Regular Channel
   */
   sConfig.Channel = ADC_CHANNEL_15;
@@ -496,48 +545,47 @@ static void MX_ADC3_Init(void)
   /* USER CODE BEGIN ADC3_Init 1 */
 
   /* USER CODE END ADC3_Init 1 */
+
   /** Common config
   */
   hadc3.Instance = ADC3;
-  hadc3.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV6;
+  hadc3.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
+  hadc3.Init.Resolution = ADC_RESOLUTION_12B;
   hadc3.Init.DataAlign = ADC3_DATAALIGN_RIGHT;
-  hadc3.Init.ScanConvMode = ADC_SCAN_ENABLE;
-  hadc3.Init.EOCSelection = ADC_EOC_SEQ_CONV;
+  hadc3.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc3.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc3.Init.LowPowerAutoWait = DISABLE;
   hadc3.Init.ContinuousConvMode = ENABLE;
-  hadc3.Init.NbrOfConversion = 2;
+  hadc3.Init.NbrOfConversion = 1;
   hadc3.Init.DiscontinuousConvMode = DISABLE;
   hadc3.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc3.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc3.Init.DMAContinuousRequests = ENABLE;
+  hadc3.Init.DMAContinuousRequests = DISABLE;
   hadc3.Init.SamplingMode = ADC_SAMPLING_MODE_NORMAL;
-  hadc3.Init.ConversionDataManagement = ADC_CONVERSIONDATA_DMA_CIRCULAR;
-  hadc3.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+  hadc3.Init.ConversionDataManagement = ADC_CONVERSIONDATA_DR;
+  hadc3.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
   hadc3.Init.LeftBitShift = ADC_LEFTBITSHIFT_NONE;
-  hadc3.Init.OversamplingMode = DISABLE;
+  hadc3.Init.OversamplingMode = ENABLE;
+  hadc3.Init.Oversampling.Ratio = 16;
+  hadc3.Init.Oversampling.RightBitShift = ADC_RIGHTBITSHIFT_5;
+  hadc3.Init.Oversampling.TriggeredMode = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
+  hadc3.Init.Oversampling.OversamplingStopReset = ADC_REGOVERSAMPLING_CONTINUED_MODE;
   if (HAL_ADC_Init(&hadc3) != HAL_OK)
   {
     Error_Handler();
   }
+
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Channel = ADC_CHANNEL_1;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC3_SAMPLETIME_12CYCLES_5;
+  sConfig.SamplingTime = ADC3_SAMPLETIME_92CYCLES_5;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;
   sConfig.OffsetSignedSaturation = DISABLE;
   sConfig.OffsetSign = ADC3_OFFSET_SIGN_NEGATIVE;
   sConfig.OffsetSaturation = DISABLE;
-  if (HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Configure Regular Channel
-  */
-  sConfig.Channel = ADC_CHANNEL_1;
-  sConfig.Rank = ADC_REGULAR_RANK_2;
   if (HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -593,8 +641,8 @@ static void MX_DFSDM1_Init(void)
   hdfsdm1_filter0.Init.RegularParam.Trigger = DFSDM_FILTER_SW_TRIGGER;
   hdfsdm1_filter0.Init.RegularParam.FastMode = DISABLE;
   hdfsdm1_filter0.Init.RegularParam.DmaMode = DISABLE;
-  hdfsdm1_filter0.Init.FilterParam.SincOrder = DFSDM_FILTER_FASTSINC_ORDER;
-  hdfsdm1_filter0.Init.FilterParam.Oversampling = 256;
+  hdfsdm1_filter0.Init.FilterParam.SincOrder = DFSDM_FILTER_SINC3_ORDER;
+  hdfsdm1_filter0.Init.FilterParam.Oversampling = 32;
   hdfsdm1_filter0.Init.FilterParam.IntOversampling = 1;
   if (HAL_DFSDM_FilterInit(&hdfsdm1_filter0) != HAL_OK)
   {
@@ -605,7 +653,7 @@ static void MX_DFSDM1_Init(void)
   hdfsdm1_filter1.Init.RegularParam.FastMode = DISABLE;
   hdfsdm1_filter1.Init.RegularParam.DmaMode = DISABLE;
   hdfsdm1_filter1.Init.FilterParam.SincOrder = DFSDM_FILTER_SINC3_ORDER;
-  hdfsdm1_filter1.Init.FilterParam.Oversampling = 256;
+  hdfsdm1_filter1.Init.FilterParam.Oversampling = 32;
   hdfsdm1_filter1.Init.FilterParam.IntOversampling = 1;
   if (HAL_DFSDM_FilterInit(&hdfsdm1_filter1) != HAL_OK)
   {
@@ -616,7 +664,7 @@ static void MX_DFSDM1_Init(void)
   hdfsdm1_filter2.Init.RegularParam.FastMode = DISABLE;
   hdfsdm1_filter2.Init.RegularParam.DmaMode = DISABLE;
   hdfsdm1_filter2.Init.FilterParam.SincOrder = DFSDM_FILTER_SINC3_ORDER;
-  hdfsdm1_filter2.Init.FilterParam.Oversampling = 256;
+  hdfsdm1_filter2.Init.FilterParam.Oversampling = 32;
   hdfsdm1_filter2.Init.FilterParam.IntOversampling = 1;
   if (HAL_DFSDM_FilterInit(&hdfsdm1_filter2) != HAL_OK)
   {
@@ -627,7 +675,7 @@ static void MX_DFSDM1_Init(void)
   hdfsdm1_filter3.Init.RegularParam.FastMode = DISABLE;
   hdfsdm1_filter3.Init.RegularParam.DmaMode = DISABLE;
   hdfsdm1_filter3.Init.FilterParam.SincOrder = DFSDM_FILTER_SINC3_ORDER;
-  hdfsdm1_filter3.Init.FilterParam.Oversampling = 256;
+  hdfsdm1_filter3.Init.FilterParam.Oversampling = 32;
   hdfsdm1_filter3.Init.FilterParam.IntOversampling = 1;
   if (HAL_DFSDM_FilterInit(&hdfsdm1_filter3) != HAL_OK)
   {
@@ -823,14 +871,14 @@ static void MX_SPI2_Init(void)
   hspi2.Init.Direction = SPI_DIRECTION_2LINES;
   hspi2.Init.DataSize = SPI_DATASIZE_16BIT;
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi2.Init.CLKPhase = SPI_PHASE_2EDGE;
   hspi2.Init.NSS = SPI_NSS_HARD_OUTPUT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi2.Init.CRCPolynomial = 0x0;
-  hspi2.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+  hspi2.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
   hspi2.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
   hspi2.Init.FifoThreshold = SPI_FIFO_THRESHOLD_01DATA;
   hspi2.Init.TxCRCInitializationPattern = SPI_CRC_INITIALIZATION_ALL_ZERO_PATTERN;
@@ -838,7 +886,7 @@ static void MX_SPI2_Init(void)
   hspi2.Init.MasterSSIdleness = SPI_MASTER_SS_IDLENESS_00CYCLE;
   hspi2.Init.MasterInterDataIdleness = SPI_MASTER_INTERDATA_IDLENESS_00CYCLE;
   hspi2.Init.MasterReceiverAutoSusp = SPI_MASTER_RX_AUTOSUSP_DISABLE;
-  hspi2.Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_DISABLE;
+  hspi2.Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_ENABLE;
   hspi2.Init.IOSwap = SPI_IO_SWAP_DISABLE;
   if (HAL_SPI_Init(&hspi2) != HAL_OK)
   {
@@ -871,14 +919,14 @@ static void MX_SPI3_Init(void)
   hspi3.Init.Direction = SPI_DIRECTION_2LINES;
   hspi3.Init.DataSize = SPI_DATASIZE_16BIT;
   hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi3.Init.CLKPhase = SPI_PHASE_2EDGE;
   hspi3.Init.NSS = SPI_NSS_HARD_OUTPUT;
-  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
+  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
   hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi3.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi3.Init.CRCPolynomial = 0x0;
-  hspi3.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+  hspi3.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
   hspi3.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
   hspi3.Init.FifoThreshold = SPI_FIFO_THRESHOLD_01DATA;
   hspi3.Init.TxCRCInitializationPattern = SPI_CRC_INITIALIZATION_ALL_ZERO_PATTERN;
@@ -886,7 +934,7 @@ static void MX_SPI3_Init(void)
   hspi3.Init.MasterSSIdleness = SPI_MASTER_SS_IDLENESS_00CYCLE;
   hspi3.Init.MasterInterDataIdleness = SPI_MASTER_INTERDATA_IDLENESS_00CYCLE;
   hspi3.Init.MasterReceiverAutoSusp = SPI_MASTER_RX_AUTOSUSP_DISABLE;
-  hspi3.Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_DISABLE;
+  hspi3.Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_ENABLE;
   hspi3.Init.IOSwap = SPI_IO_SWAP_DISABLE;
   if (HAL_SPI_Init(&hspi3) != HAL_OK)
   {
@@ -927,7 +975,7 @@ static void MX_SPI4_Init(void)
   hspi4.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi4.Init.CRCPolynomial = 0x0;
   hspi4.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
-  hspi4.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
+  hspi4.Init.NSSPolarity = SPI_NSS_POLARITY_HIGH;
   hspi4.Init.FifoThreshold = SPI_FIFO_THRESHOLD_01DATA;
   hspi4.Init.TxCRCInitializationPattern = SPI_CRC_INITIALIZATION_ALL_ZERO_PATTERN;
   hspi4.Init.RxCRCInitializationPattern = SPI_CRC_INITIALIZATION_ALL_ZERO_PATTERN;
@@ -975,7 +1023,7 @@ static void MX_SPI6_Init(void)
   hspi6.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi6.Init.CRCPolynomial = 0x0;
   hspi6.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
-  hspi6.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
+  hspi6.Init.NSSPolarity = SPI_NSS_POLARITY_HIGH;
   hspi6.Init.FifoThreshold = SPI_FIFO_THRESHOLD_01DATA;
   hspi6.Init.TxCRCInitializationPattern = SPI_CRC_INITIALIZATION_ALL_ZERO_PATTERN;
   hspi6.Init.RxCRCInitializationPattern = SPI_CRC_INITIALIZATION_ALL_ZERO_PATTERN;
@@ -1017,7 +1065,7 @@ static void MX_TIM1_Init(void)
   htim1.Instance = TIM1;
   htim1.Init.Prescaler = 0;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 65535;
+  htim1.Init.Period = 10000;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -1289,15 +1337,9 @@ static void MX_DMA_Init(void)
   __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* DMA interrupt init */
-  /* DMA1_Stream0_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
   /* DMA1_Stream1_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
-  /* DMA1_Stream2_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Stream2_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Stream2_IRQn);
 
 }
 
@@ -1322,7 +1364,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOA, FAULT_LED_Pin|BRD_EN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_9|INV2_EN_Pin|DRV2_EN_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOD, DRV1_EN_Pin|INV2_EN_Pin|DRV2_EN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(INV1_EN_GPIO_Port, INV1_EN_Pin, GPIO_PIN_RESET);
@@ -1334,14 +1376,14 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PD8 nFault2_Pin */
-  GPIO_InitStruct.Pin = GPIO_PIN_8|nFault2_Pin;
+  /*Configure GPIO pins : FAULT1_Pin nFault2_Pin */
+  GPIO_InitStruct.Pin = FAULT1_Pin|nFault2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PD9 INV2_EN_Pin DRV2_EN_Pin */
-  GPIO_InitStruct.Pin = GPIO_PIN_9|INV2_EN_Pin|DRV2_EN_Pin;
+  /*Configure GPIO pins : DRV1_EN_Pin INV2_EN_Pin DRV2_EN_Pin */
+  GPIO_InitStruct.Pin = DRV1_EN_Pin|INV2_EN_Pin|DRV2_EN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -1393,4 +1435,3 @@ void assert_failed(uint8_t *file, uint32_t line)
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
-

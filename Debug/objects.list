@@ -2,6 +2,7 @@
 "./Core/Src/PI_Loop.o"
 "./Core/Src/drv8350s.o"
 "./Core/Src/main.o"
+"./Core/Src/pos_offset_cal.o"
 "./Core/Src/stm32h7xx_hal_msp.o"
 "./Core/Src/stm32h7xx_it.o"
 "./Core/Src/syscalls.o"

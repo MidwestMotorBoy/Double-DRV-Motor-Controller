@@ -1,2 +1,14 @@
-drv8350s.c:3:6:write_to_reg	24	static
-drv8350s.c:7:10:read_reg_IT	24	static
+../Core/Src/drv8350s.c:9:6:write_to_reg	24	static
+../Core/Src/drv8350s.c:15:10:read_reg	32	static
+../Core/Src/drv8350s.c:22:10:read_fault_reg	16	static
+../Core/Src/drv8350s.c:26:10:read_vgs_reg	16	static
+../Core/Src/drv8350s.c:30:6:set_driver_ctrl_reg	32	static
+../Core/Src/drv8350s.c:37:10:read_driver_ctrl_reg	16	static
+../Core/Src/drv8350s.c:41:6:set_hs_driver_reg	32	static
+../Core/Src/drv8350s.c:46:10:read_hs_driver_reg	16	static
+../Core/Src/drv8350s.c:50:6:set_ls_driver_ctrl_reg	32	static
+../Core/Src/drv8350s.c:55:10:read_ls_driver_reg	16	static
+../Core/Src/drv8350s.c:59:6:set_ocp_ctrl_reg	32	static
+../Core/Src/drv8350s.c:64:10:read_ocp_reg	16	static
+../Core/Src/drv8350s.c:68:6:read_all_regs	24	static
+../Core/Src/drv8350s.c:77:6:clear_flt	24	static
