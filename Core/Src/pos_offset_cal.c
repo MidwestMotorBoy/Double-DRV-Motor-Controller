@@ -2,7 +2,7 @@
  * pos_offset_cal.c
  *
  *  Created on: May 19, 2022
- *      Author: LoganRosenmayer
+ *      Author: MidwestMotorBoy
  */
 
 /*********************************************************************
@@ -16,7 +16,7 @@
 /*********************************************************************
  * Defines
  * ******************************************************************/
-#define LOOPS_TO_RUN 3
+#define LOOPS_TO_RUN 5
 #define LOOP_SIZE 1024 //Size of sin lut
 #define NUMBER_OF_STEPS_PER_LOOP 6
 #define WAIT_TIME 300 //ms
@@ -49,6 +49,7 @@ SENSOR_OFFSET_E get_pos_offset(TIM_TypeDef *timer, SPI_HandleTypeDef *encoder_sp
 		locations[x] = (LOOP_SIZE * x) / NUMBER_OF_STEPS_PER_LOOP;
 	}
 
+	HAL_SPI_TransmitReceive(encoder_spi, (uint8_t*) &request_pos, (uint8_t*) &position, 1, 100);
 	for(int32_t loop_cnt=0; loop_cnt < LOOPS_TO_RUN; loop_cnt++){
 		for(int32_t step_cnt=0; step_cnt < NUMBER_OF_STEPS_PER_LOOP; step_cnt++){
 			inv_parkclark(&Va, &Vb, &Vc, locations[step_cnt], POS_OFFSET_TEST_V, 0);
@@ -89,9 +90,10 @@ SENSOR_OFFSET_E get_pos_offset(TIM_TypeDef *timer, SPI_HandleTypeDef *encoder_sp
 	HAL_Delay(1000);
 
 	//Lets do a bunch of math (Kill me)
-	ret_val.sign = 1;
+	int sign = 1;
+	ret_val.direction = DIR_CW;
 	ret_val.pole_pairs = 0;
-	ret_val.fixedpt_offset = 0;
+	ret_val.offset = 0;
 	float offset_mdeg = 0.0f;
 	float step_size_mech = positions_forward[0][1] - positions_forward[0][0];
 
@@ -104,7 +106,8 @@ SENSOR_OFFSET_E get_pos_offset(TIM_TypeDef *timer, SPI_HandleTypeDef *encoder_sp
 	}
 	if(step_size_mech < 0){
 		step_size_mech=-step_size_mech;
-		ret_val.sign=-1;
+		ret_val.direction = DIR_CCW;
+		sign= -1;
 	}
 	ret_val.pole_pairs = (int)E_DEGREE_CHANGE_IN_STEP/step_size_mech+0.5;
 	float mech_degrees_in_loop = E_DEGREE_CHANGE_IN_LOOP/ret_val.pole_pairs;
@@ -119,11 +122,15 @@ SENSOR_OFFSET_E get_pos_offset(TIM_TypeDef *timer, SPI_HandleTypeDef *encoder_sp
 	}
 	float normalized_offset =0;
 	for(int32_t idx=0; idx < NUMBER_OF_STEPS_PER_LOOP; idx++){
-		normalized_offset += fmod(avg_pos[idx] - ret_val.sign * mech_degrees_in_loop * idx / NUMBER_OF_STEPS_PER_LOOP, mech_degrees_in_loop);
+		normalized_offset += fmod(avg_pos[idx] - sign * mech_degrees_in_loop * idx / NUMBER_OF_STEPS_PER_LOOP, mech_degrees_in_loop);
 	}
 	normalized_offset /= NUMBER_OF_STEPS_PER_LOOP;
-	offset_mdeg = ZERO_POS / ret_val.pole_pairs - normalized_offset;
-	ret_val.fixedpt_offset = (int)(LOOP_SIZE * offset_mdeg / E_DEGREE_CHANGE_IN_LOOP + ret_val.sign * 0.5);
+	offset_mdeg = normalized_offset - ZERO_POS / ret_val.pole_pairs;
+	//ret_val.fixedpt_offset = (int)(LOOP_SIZE * offset_mdeg / E_DEGREE_CHANGE_IN_LOOP + ret_val.sign * 0.5);
+	if(offset_mdeg < 0){
+		offset_mdeg += mech_degrees_in_loop;
+	}
+	ret_val.offset = offset_mdeg;
 	return(ret_val);
 }
 

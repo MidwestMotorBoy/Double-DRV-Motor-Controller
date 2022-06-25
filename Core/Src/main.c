@@ -231,8 +231,22 @@ int main(void)
   HAL_Delay(10);
   clear_flt(&hspi2);
   HAL_Delay(10);
+  float ma732_offset_pre = read_offset(&hspi4);
+  MA732_ROT_DIR ma732_dir_pre = read_rot_dir(&hspi4);
+  reset_offset_and_dir(&hspi4);
+  float ma732_offset_post_reset = read_offset(&hspi4);
+  MA732_ROT_DIR ma732_dir_post_reset = read_rot_dir(&hspi4);
   SENSOR_OFFSET_E mot_offset_1 = get_pos_offset(TIM1, &hspi4);
   //SENSOR_OFFSET_E mot_offset_2 = get_pos_offset(TIM8, &hspi6);
+  //set_offset(&hspi4, mot_offset_1.offset);
+  set_dir(&hspi4,mot_offset_1.direction);
+  HAL_Delay(10);
+  SENSOR_OFFSET_E mot_offset_1_rnd2 = get_pos_offset(TIM1, &hspi4);
+  set_offset(&hspi4, mot_offset_1_rnd2.offset);
+  float ma732_offset_after = read_offset(&hspi4);
+  MA732_ROT_DIR ma732_dir_after = read_rot_dir(&hspi4);
+  int32_t tim_period = TIM1->ARR;
+  int Va, Vb, Vc, min_val;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -248,8 +262,8 @@ int main(void)
 	  float dc_bus = dc_bus_fxpt*0.028998778998779f;
 	  HAL_SPI_TransmitReceive(&hspi6, (uint8_t*) &request_pos, (uint8_t*) &position_2, 1, 100);
 	  HAL_SPI_TransmitReceive(&hspi4, (uint8_t*) &request_pos, (uint8_t*) &position, 1, 100);
-	  float position_temp = position >> 4;
-	  float position_temp_2 = position_2 >> 4;
+	  int position_temp = position >> 4;
+	  int position_temp_2 = position_2 >> 4;
 	  angle = data2angle * position_temp;
 	  angle_2 = data2angle * position_temp_2;
 	  //speed cal
@@ -262,6 +276,15 @@ int main(void)
 	  }
 	  angle_sum += diff_angle;
 	  prev_angle = angle;
+	  uint16_t e_position= ((position_temp * mot_offset_1.pole_pairs))%1024;
+	  inv_parkclark(&Va, &Vb, &Vc, e_position, 400, 0);
+	  min_val = find_min_voltage(Va, Vb, Vc);
+	  Va -= min_val;
+	  Vb -= min_val;
+	  Vc -= min_val;
+	  TIM1->CCR1 = (Va*tim_period)/DC_BUS_V;
+	  TIM1->CCR2 = (Vb*tim_period)/DC_BUS_V;
+	  TIM1->CCR3 = (Vc*tim_period)/DC_BUS_V;
 
 	  //	  uint32_t *adc1_add = adc1;
 	  HAL_Delay (1);

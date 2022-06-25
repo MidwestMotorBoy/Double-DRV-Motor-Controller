@@ -2,7 +2,7 @@
  * FOC.h
  *
  *  Created on: Oct 1, 2019
- *      Author: LoganRosenmayer
+ *      Author: MidwestMotorBoy
  */
 
 #ifndef FOC_H_

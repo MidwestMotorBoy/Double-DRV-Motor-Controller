@@ -2,7 +2,7 @@
  * DRV8350.c
  *
  *  Created on: Oct 1, 2021
- *      Author: LoganRosenmayer
+ *      Author: MidwestMotorBoy
  */
 #include "drv8350s.h"
 

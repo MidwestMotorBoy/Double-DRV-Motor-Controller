@@ -2,7 +2,7 @@
  * DRV8350.h
  *
  *  Created on: Oct 1, 2021
- *      Author: LoganRosenmayer
+ *      Author: MidwestMotorBoy
  */
 #include "stm32h7xx_hal.h"
 
@@ -46,6 +46,7 @@ struct drv8350{
 	uint16_t fault_Pin;
 	TIM_HandleTypeDef tim;
 };
+
 void write_to_reg(SPI_HandleTypeDef* spi_handler, uint16_t reg, uint16_t data);
 uint16_t read_reg(SPI_HandleTypeDef* spi_handler, uint16_t reg);
 uint16_t read_fault_reg(SPI_HandleTypeDef* spi_handler);
