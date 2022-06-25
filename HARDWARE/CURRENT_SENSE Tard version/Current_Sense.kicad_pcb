@@ -218,7 +218,7 @@
   (gr_line (start 59.69 73.66) (end 124.46 73.66) (layer "Edge.Cuts") (width 0.05) (tstamp a06e8e78-f567-42e6-b645-013b1073ca31))
   (gr_arc (start 124.46 73.66) (mid 126.256051 74.403949) (end 127 76.2) (layer "Edge.Cuts") (width 0.05) (tstamp c3c93de0-69b1-4a04-8e0b-d78caf487c63))
   (gr_arc (start 127 96.52) (mid 126.256051 98.316051) (end 124.46 99.06) (layer "Edge.Cuts") (width 0.05) (tstamp f9865a9f-edb8-49c7-828f-4896e1f3047a))
-  (gr_text "Logan Rosenmayer\nCurrent Sense Tard Version\n(C1 ONLY)Rev 1.0\n11/30/21" (at 115.697 95.758) (layer "F.SilkS") (tstamp 7e08f2a4-63d6-468b-bd8b-ec607077e023)
+  (gr_text "MidwestMotorBoy\nCurrent Sense Tard Version\n(C1 ONLY)Rev 1.0\n11/30/21" (at 115.697 95.758) (layer "F.SilkS") (tstamp 7e08f2a4-63d6-468b-bd8b-ec607077e023)
     (effects (font (size 1 1) (thickness 0.15)))
   )
 

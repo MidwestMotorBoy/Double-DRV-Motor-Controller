@@ -67761,7 +67761,7 @@
   (gr_text "A2" (at 170.942 90.424) (layer "F.SilkS") (tstamp 9407a855-20a4-42d4-b18e-d0dc2c0a52ca)
     (effects (font (size 5 5) (thickness 1)))
   )
-  (gr_text "Logan Rosenmayer\nDouble DRV8350S\n11/12/21\nSEM\nREV 1.0" (at 187.96 26.67) (layer "F.SilkS") (tstamp a554d194-7eea-4257-bc5d-17e08a36f170)
+  (gr_text "MidwestMotorBoy\nDouble DRV8350S\n11/12/21\nSEM\nREV 1.0" (at 187.96 26.67) (layer "F.SilkS") (tstamp a554d194-7eea-4257-bc5d-17e08a36f170)
     (effects (font (size 1.5 1.5) (thickness 0.3)))
   )
   (gr_text "3.3V" (at 172.6565 160.7185 90) (layer "F.SilkS") (tstamp adf9b72a-28ea-4973-bacb-0d390ba47c03)

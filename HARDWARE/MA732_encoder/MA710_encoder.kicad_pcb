@@ -772,7 +772,7 @@
   (gr_line (start 179.068117 141.220674) (end 179.069999 129.920999) (layer "Edge.Cuts") (width 0.05) (tstamp 00000000-0000-0000-0000-000061a61dd3))
   (gr_arc (start 179.068117 141.220674) (mid 164.568073 145.059744) (end 150.050501 141.287499) (layer "Edge.Cuts") (width 0.05) (tstamp aca4de92-9c41-4c2b-9afa-540d02dafa1c))
   (gr_arc (start 150.079001 130.069999) (mid 164.394641 95.000269) (end 179.069999 129.920999) (layer "Edge.Cuts") (width 0.05) (tstamp c43663ee-9a0d-4f27-a292-89ba89964065))
-  (gr_text "DP Fixed Pos Sensor\n2/14/2022\nLogan Rosenmayer" (at 152.4 115.316 90) (layer "F.SilkS") (tstamp e769051d-6bb2-4770-bbec-9a0b23c66660)
+  (gr_text "DP Fixed Pos Sensor\n2/14/2022\nMidwestMotorBoy" (at 152.4 115.316 90) (layer "F.SilkS") (tstamp e769051d-6bb2-4770-bbec-9a0b23c66660)
     (effects (font (size 1 1) (thickness 0.15)))
   )
 
